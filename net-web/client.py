@@ -12,10 +12,10 @@ TS_PACKET_LENGTH = 188
 # UDP header 8, IP header 20, ETHERNET header 14 and ETHERNET crc 4
 # The limit lies on that one message should be no larger than 1500
 # bytes in order to be transmitted efficiently through ethernet.
-PACKETS_PER_MESSAGE = (1500 - 12 - 8 - 20 - 14 - 4) / 188
+PACKETS_PER_MESSAGE = int((1500 - 12 - 8 - 20 - 14 - 4) / 188)
 
 MTU = 1500
-RQST_LISTEN_ADDRESS = ""
+RQST_LISTEN_ADDRESS = "127.0.0.1"
 RQST_LISTEN_PORT = 9876
 RQST_LENGTH = 3
 SSRC = 234567892
@@ -44,21 +44,28 @@ MAX_FIRST_SEQ = 160
 
 
 def request_film(film_name):
+	global NOT_FINISHED, first_seq
 	request_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	request_socket.connect((RQST_LISTEN_ADDRESS, RQST_LISTEN_PORTR))
+	request_socket.connect((RQST_LISTEN_ADDRESS, RQST_LISTEN_PORT))
 	recv_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	try:
 		recv_socket.bind((local_ip, local_port))
 	except socket.error:
 		print("Fail to appoint ip & port")
 		return
-	request_socket.sendall(film_name)
-	request_socket.sendall(local_ip)
-	request_socket.sendall(local_port)
+	request_socket.send(film_name)
+	print "sent!"
+	time.sleep(3)
+	request_socket.send(local_ip)
+	time.sleep(3)
+	print "sent!"
+	request_socket.send("%d" % local_port)
+	time.sleep(3)
+	print "sent!"
 	# request_socket.sendall((film_name, local_ip, local_port))
 	# file_recv(recv_socket)
-	first_seq = request_socket.recv(1024)
-
+	first_seq = int(request_socket.recv(1024).decode("utf-8"))
+	print first_seq
 	recv_thread = threading.Thread(target = file_recv, args = (recv_socket,))
 	recv_thread.start()
 
@@ -76,16 +83,29 @@ def request_film(film_name):
 
 
 def file_recv(recv_socket):
+	global NOT_FINISHED
 	while NOT_FINISHED:
 		recv_data, server_addr = recv_socket.recvfrom(RECV_BUF_SIZE)
-		cur_seq = unwrap_slices(recv_data)
+		'''
+		print "I have recv from"
+		print recv_data[0]
+		test_file = open("./test_file.ts", 'a')
+		'''
+		cur_seq = unwrap_slices(bytes(recv_data))
+		# test_file.write(recv_data)
 		# file_sort(recv_data, cur_seq)
 	return
 
 
 
 def unwrap_slices(recvmsg):
+	# print int(recvmsg[2:4].decode("utf-8"))
+	# print BitArray(recvmsg[0:5])
+	# print recvmsg[2].decode("utf-8")
+	# print recvmsg[3].decode("utf-8")
+	# ???
 	seq_num = (ord(recvmsg[2])<<8) + ord(recvmsg[3])
+	print seq_num
 	ts_packets = recvmsg[12:len(recvmsg)]
 	ts_packet = []
 	for i in range(0, len(ts_packets) / TS_PACKET_LENGTH):
@@ -119,9 +139,11 @@ def file_sort(ts_packet, packet_seq):
 
 
 def pause_send():
+	global SLOW_DOWN
 	SLOW_DOWN = True
 
 def pause_server(tcp_socket):
+	global NOT_FINISHED, SLOW_DOWN
 	while NOT_FINISHED:
 		if SLOW_DOWN == True:
 			tcp_socket.sendall("Slow down.")
@@ -147,12 +169,11 @@ def write_ts(file_path):
 		test_write(heapq.heappop(buf_heap)[1], file_path)
 
 
-'''
+
 if __name__ == "__main__":
 	film1 = "The Death of Stalin"
-	test_path = "d:/film_test.ts"
+	test_path = "./film_test.ts"
 	download_thread = threading.Thread(target = request_film, args = (film1,))
 	write_thread = threading.Thread(target = write_ts, args = (test_path,))
 	download_thread.start()
 	write_thread.start()
-'''
