@@ -4,6 +4,7 @@ import random
 import heapq
 import threading
 import time
+import bitstring
 
 
 UDP_PORT_NUM = 2333
@@ -104,7 +105,8 @@ def unwrap_slices(recvmsg):
 	# print recvmsg[2].decode("utf-8")
 	# print recvmsg[3].decode("utf-8")
 	# ???
-	seq_num = (ord(recvmsg[2])<<8) + ord(recvmsg[3])
+	seq_num = BitArray(bytes = recvmsg[2:4], length = 16).int
+	# seq_num = (ord(recvmsg[2])<<8) + ord(recvmsg[3])
 	print seq_num
 	ts_packets = recvmsg[12:len(recvmsg)]
 	ts_packet = []
