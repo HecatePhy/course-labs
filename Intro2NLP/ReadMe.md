@@ -1,2 +1,2 @@
 ## Intro2NLP
-$Project2-2$
+ Project2-2
